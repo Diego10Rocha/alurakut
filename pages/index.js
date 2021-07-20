@@ -3,6 +3,8 @@ import MainGrid from '../src/components/MainGrid';
 import Box from '../src/components/Box';
 import { AlurakutMenu, AlurakutProfileSidebarMenuDefault, OrkutNostalgicIconSet } from '../src/lib/AluraCommons'
 import { ProfileRelationsBoxWrapper } from '../src/components/ProfileRelations';
+import nookies from 'nookies';
+import jwt from 'jsonwebtoken'
 
 function ProfileSidebar(props){
   //console.log(props);
@@ -24,18 +26,18 @@ function ProfileSidebar(props){
 }
 
 function ProfileRelationsBox(props){
-  var contador = 0;
+  let contador = 0;
   return (
     <ProfileRelationsBoxWrapper>
           <h2 className="smallTitle">{props.title} ({props.items.length})</h2>
             <ul>
               
               {props.items.map((itemAtual)=>{
-                /*if(contador<6){
+                if(contador < 6){
                 contador++
                 return (
                   
-                  <li key={itemAtual}>
+                  <li key={itemAtual.login}>
                     <a href={`https://github.com/${itemAtual.login}.png`}>
                       <img src={`https://github.com/${itemAtual.login}.png`} />
                       <span>{itemAtual.login}</span>
@@ -51,18 +53,18 @@ function ProfileRelationsBox(props){
                     <a className="boxLink" href="#">Ver mais</a>
                   </div>
                 )
-              }*/})}
+              }})}
               
             </ul>
           </ProfileRelationsBoxWrapper>
   );
 }
 
-export default function Home() {
+export default function Home(props) {
 
   const [comunidades, setComunidades] = React.useState([]);
 
-  const githubUser = "Diego10Rocha";
+  const user = props.githubUser;
 
   //const comunidades = ['Alurakut'];
   const pessoasFavoritas = [
@@ -125,7 +127,7 @@ export default function Home() {
         {/*<Box style="grid-area: profileArea;">Imagem</Box>*/}
 
         <div className="profileArea" style={{gridArea: 'profileArea'}}>
-          <ProfileSidebar githubUser={githubUser}/>
+          <ProfileSidebar githubUser={user}/>
         </div>
         
         <div className="welcomeArea" style={{gridArea: 'welcomeArea'}}>
@@ -149,7 +151,7 @@ export default function Home() {
                 const comunidade = {
                   title: dadosDoForm.get('title'),
                   imageUrl: dadosDoForm.get('image'),
-                  creatorSlug: githubUser,
+                  creatorSlug: user,
                 }
 
                 fetch('/api/comunidades', {
@@ -195,32 +197,58 @@ export default function Home() {
           <ProfileRelationsBox title="Seguidores" items={seguidores}/>
 
           <ProfileRelationsBoxWrapper>
-          <h2 className="smallTitle">Comunidades ({comunidades.length})</h2>
-            <ul>
-              {comunidades.map((itemAtual)=>{
-                return (
-                  <li key={itemAtual.id}>
-                    <a href={`/comunidades/${itemAtual.id}`}>
-                      <img src={itemAtual.imageUrl} />
-                      <span>{itemAtual.title}</span>
-                    </a>
-                  </li>
-                )
-              })}
+            <h2 className="smallTitle">Comunidades ({comunidades.length})</h2>
+              <ul>
+                {comunidades.map((itemAtual)=>{
+                  let contador = 0;
+                  if(contador<6){
+                    contador++
+                    return (
+                      <li key={itemAtual.id}>
+                        <a href={`/comunidades/${itemAtual.id}`}>
+                          <img src={itemAtual.imageUrl} />
+                          <span>{itemAtual.title}</span>
+                        </a>
+                      </li>
+                    )
+                }else if(contador == 6){
+                  contador++;
+  
+                  return(
+                    <div>
+                      <hr/>
+                      <a className="boxLink" href="#">Ver mais</a>
+                    </div>
+                  )
+                }
+                })}
             </ul>
           </ProfileRelationsBoxWrapper>
           <ProfileRelationsBoxWrapper>
             <h2 className="smallTitle">Pessoas da comunidade ({pessoasFavoritas.length})</h2>
             <ul>
               {pessoasFavoritas.map((itemAtual)=>{
-                return (
-                  <li key={itemAtual}>
-                    <a href={`/users/${itemAtual}`}>
-                      <img src={`https://github.com/${itemAtual}.png`} />
-                      <span>{itemAtual}</span>
-                    </a>
-                  </li>
-                )
+                let contador = 0;
+                if(contador<6){
+                  contador++
+                  return (
+                    <li key={itemAtual}>
+                      <a href={`/users/${itemAtual}`}>
+                        <img src={`https://github.com/${itemAtual}.png`} />
+                        <span>{itemAtual}</span>
+                      </a>
+                    </li>
+                  )
+                }else if(contador == 6){
+                  contador++;
+  
+                  return(
+                    <div>
+                      <hr/>
+                      <a className="boxLink" href="#">Ver mais</a>
+                    </div>
+                  )
+                }
               })}
             </ul>
           </ProfileRelationsBoxWrapper>
@@ -230,4 +258,36 @@ export default function Home() {
       </MainGrid>
     </>
     )
+}
+
+export async  function getServerSideProps(context){
+  const cookies = nookies.get(context);
+  const token = cookies.USER_TOKEN;
+  //console.log(token)
+
+  const { isAuthenticated } = await fetch('https://alurakut.vercel.app/api/auth', {
+    headers: {
+      Authorization: token,
+    }
+  })
+  .then((resposta) => resposta.json())
+  console.log("Autenticado:", isAuthenticated)
+
+  if(!isAuthenticated){
+    alert("Usuário não encontrado!")
+    return{
+      redirect: {
+        destination: '/login',
+        permanent: false
+      }
+    }
+  }
+
+  const { githubUser } = jwt.decode(token);
+
+  return {
+    props: {
+      githubUser,
+    },
+  }
 }
